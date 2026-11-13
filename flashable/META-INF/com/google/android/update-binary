@@ -1,0 +1,114 @@
+#!/sbin/sh
+# =====================================================================
+# Mcl0v1n vs android - recovery flashable installer (update-binary)
+# Target: Samsung Galaxy S III GT-I9300, Android 4.4.4 (KitKat)
+#
+# Recovery (TWRP/CWM) invokes:  update-binary <api> <output_fd> <zip>
+#   $1 = recovery API version (ignored)
+#   $2 = file descriptor used for UI prints
+#   $3 = full path to this flashed zip
+#
+# This is a SHELL update-binary (works on CWM6 / TWRP 2.x on the i9300).
+# It extracts the payload and installs a PERSISTENT /system root.
+# =====================================================================
+OUTFD=$2
+ZIP=$3
+TMP=/tmp/mclovin
+
+ui_print() { echo -e "ui_print $1\nui_print" >> /proc/self/fd/$OUTFD; }
+abort()    { ui_print "!! $1"; cleanup; exit 1; }
+cleanup()  { rm -rf "$TMP"; }
+
+ui_print " "
+ui_print "============================================"
+ui_print "  Mcl0v1n vs android  -  v1.0"
+ui_print "  Persistent root for Galaxy S III (i9300)"
+ui_print "  Android 4.4.4 / KitKat"
+ui_print "============================================"
+ui_print " "
+
+# --- Extract payload ------------------------------------------------
+mkdir -p "$TMP"
+cd "$TMP"
+unzip -o "$ZIP" -x "META-INF/*" -d "$TMP" >/dev/null 2>&1
+
+# --- Device guard ---------------------------------------------------
+# Refuse to flash on the wrong device to avoid bricking.
+DEVICE=$(getprop ro.product.device 2>/dev/null)
+BOARD=$(getprop ro.product.board 2>/dev/null)
+case "$DEVICE$BOARD" in
+  *i9300*|*m0*|*smdk4x12*) : ;;   # m0 is the i9300 codename
+  *) ui_print "WARNING: device '$DEVICE' is not a known i9300.";
+     ui_print "         Continuing in 5s (flash at your own risk)...";
+     sleep 5 ;;
+esac
+
+# --- Mount /system read-write --------------------------------------
+ui_print "- Mounting /system"
+mount /system 2>/dev/null
+# i9300 system partition (fall back to explicit block device)
+if ! mount | grep -q ' /system '; then
+  mount -t ext4 -o rw /dev/block/mmcblk0p9 /system 2>/dev/null \
+    || mount -o rw,remount /system
+fi
+mount | grep -q ' /system ' || abort "Could not mount /system"
+mount -o rw,remount /system
+
+[ -w /system ] || abort "/system is not writable"
+
+# --- Install the su binary / daemon --------------------------------
+ui_print "- Installing su + mclovind to /system/xbin"
+mkdir -p /system/xbin
+install_bin() { # src dst
+  cat "$TMP/mclovin/bin/$1" > "/system/xbin/$2" || abort "copy $2 failed"
+}
+install_bin su su
+# One static binary, invoked under different names (argv[0] selects behaviour).
+ln -sf /system/xbin/su /system/xbin/mclovind
+ln -sf /system/xbin/su /system/xbin/daemonsu
+cat "$TMP/mclovin/bin/mclovin_sepatch" > /system/xbin/mclovin_sepatch
+
+chown 0.0 /system/xbin/su /system/xbin/mclovin_sepatch
+chmod 06755 /system/xbin/su          # setuid root
+chmod 0755  /system/xbin/mclovin_sepatch
+
+# Some apps call /system/bin/su; provide a symlink too.
+ln -sf /system/xbin/su /system/bin/su 2>/dev/null
+
+# --- Install the manager app ---------------------------------------
+ui_print "- Installing Mcl0v1n manager app (/system/app)"
+mkdir -p /system/app
+cat "$TMP/mclovin/Mcl0v1n.apk" > /system/app/Mcl0v1n.apk
+chown 0.0 /system/app/Mcl0v1n.apk
+chmod 0644 /system/app/Mcl0v1n.apk
+
+# --- Install the boot hook (persistence) ---------------------------
+# install-recovery.sh is executed by init on every boot (flash_recovery
+# service). This is the KitKat-safe, OTA-resilient persistence point.
+ui_print "- Installing boot hook (install-recovery.sh)"
+mkdir -p /system/etc
+HOOK=/system/etc/install-recovery.sh
+# Preserve any stock recovery-flash command by chaining it.
+if [ -f "$HOOK" ] && ! grep -q mclovin "$HOOK"; then
+  cp "$HOOK" /system/etc/install-recovery.sh.stock 2>/dev/null
+fi
+cat "$TMP/mclovin/common/install-recovery.sh" > "$HOOK"
+chown 0.0 "$HOOK"
+chmod 0755 "$HOOK"
+
+# Also drop an init.d script in case the ROM supports run-parts init.d.
+mkdir -p /system/etc/init.d
+cat "$TMP/mclovin/common/99mclovin" > /system/etc/init.d/99mclovin
+chmod 0755 /system/etc/init.d/99mclovin
+
+# --- Done ----------------------------------------------------------
+ui_print "- Syncing"
+sync
+umount /system 2>/dev/null
+
+ui_print " "
+ui_print "Mcl0v1n installed. Reboot and look for the"
+ui_print "'Mcl0v1n vs android' app. Root is persistent."
+ui_print " "
+cleanup
+exit 0

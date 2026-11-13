@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Mcl0v1n vs android - root manager app
+  minSdk/targetSdk 19 (Android 4.4.4 KitKat). Installed to /system/app so it is
+  a privileged system app and its data dir is the policy/log store the daemon
+  reads.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.mcl0v1n.superuser"
+    android:versionCode="100"
+    android:versionName="1.0">
+
+    <uses-sdk android:minSdkVersion="19" android:targetSdkVersion="19" />
+
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <application
+        android:label="Mcl0v1n vs android"
+        android:icon="@drawable/ic_mclovin"
+        android:allowBackup="false">
+
+        <!-- Main UI: tabs for Apps / Log / Settings -->
+        <activity
+            android:name=".SuperuserActivity"
+            android:label="Mcl0v1n vs android"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- The grant/deny prompt shown when the daemon asks for a decision -->
+        <activity
+            android:name=".SuRequestActivity"
+            android:theme="@android:style/Theme.Holo.Dialog"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance" />
+
+        <!-- Watches the daemon handoff dir and keeps the daemon alive -->
+        <service android:name=".RequestWatcherService" />
+
+        <!-- Re-assert the daemon on boot (belt-and-suspenders with init hook) -->
+        <receiver android:name=".BootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

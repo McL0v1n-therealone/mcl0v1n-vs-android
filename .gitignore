@@ -1,0 +1,21 @@
+# Build outputs / artifacts
+/out/
+/app/build/
+/app/bin/
+/app/gen/
+/app/libs/
+/native/obj/
+/native/libs/
+/flashable/mclovin/bin/*.tmp
+
+# Signing secrets — never commit
+/prebuilt/*.keystore
+/prebuilt/*.jks
+
+# Downloaded tooling
+*.jar
+!/prebuilt/.gitkeep
+
+# OS / editor
+*.swp
+.DS_Store

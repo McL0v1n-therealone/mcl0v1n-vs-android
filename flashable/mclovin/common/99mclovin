@@ -1,0 +1,7 @@
+#!/system/bin/sh
+# Mcl0v1n vs android - init.d fallback launcher.
+# Runs only on ROMs that support /system/etc/init.d (most custom KitKat ROMs,
+# e.g. CyanogenMod 11 via sysinit/run-parts). Redundant with the
+# install-recovery.sh hook; harmless if both run (daemon self-guards on bind).
+[ -x /system/xbin/mclovin_sepatch ] && /system/xbin/mclovin_sepatch
+pgrep mclovind >/dev/null 2>&1 || /system/xbin/daemonsu --daemon &

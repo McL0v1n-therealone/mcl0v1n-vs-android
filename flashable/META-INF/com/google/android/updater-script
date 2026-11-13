@@ -1,0 +1,6 @@
+# Mcl0v1n vs android
+# This file is intentionally a no-op marker. All real work is performed by the
+# shell `update-binary` in this same directory (chosen for broad CWM/TWRP 2.x
+# compatibility on the Galaxy S III). Some recoveries require this file to be
+# present, so we keep it.
+ui_print("Mcl0v1n vs android");
